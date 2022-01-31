@@ -8,4 +8,4 @@ target_compile_options(run_ut_frame PRIVATE
   $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>: -fcolor-diagnostics>)
 
 target_link_libraries(run_ut_frame PRIVATE unity::framework LDP)
-add_test(ut_frame COMMAND run_ut_frame)
+add_test(NAME ut_frame COMMAND run_ut_frame)

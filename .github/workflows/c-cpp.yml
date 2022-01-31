@@ -5,5 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
-    - name: ./check
-      run: ./check
+    - run: cmake -B ${{github.workspace}}/build -DBUILD_TESTING=ON -DCMAKE_BUILD_TYPE=Release
+    - run: cmake --build ${{github.workspace}}/build
+    - working-directory: ${{github.workspace}}/build
+      run: ctest

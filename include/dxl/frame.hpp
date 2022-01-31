@@ -100,7 +100,7 @@ enum class instruction : detail::instruction_t {
 //! \param parameters Values of the field 'Param'
 template <typename F, upd::signed_mode Signed_Mode, typename... Args>
 void write_frame(F &&dest_ftor, upd::signed_mode_h<Signed_Mode> signed_mode, packet_id id, instruction ins,
-                 const Args &... parameters) {
+                 const Args &...parameters) {
   auto frame = upd::make_tuple(upd::little_endian, signed_mode, detail::header, id, detail::length_t{0},
                                static_cast<detail::instruction_t>(ins), parameters...);
   set<2>(frame, detail::calculate_length(frame.template view<4, sizeof...(Args)>()));
