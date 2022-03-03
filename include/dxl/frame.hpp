@@ -2,8 +2,7 @@
 //! \brief Basic frame handling
 #pragma once
 
-#include <cstddef>
-#include <cstdint>
+// #include <cstddef>
 
 #include <upd/tuple.hpp>
 
@@ -51,20 +50,21 @@ constexpr crc_t crc_table[] = {
     0x0208, 0x820d, 0x8207, 0x0202};
 
 //! \brief Calculate the value of the field 'Length' in a frame
-template <typename Tuple_T> length_t calculate_length(const Tuple_T &frame_args) {
-  length_t stuff_count = 0;
+template <typename It> length_t calculate_length(const It &begin, const It &end) {
+  length_t stuffed_length = 0;
   size_t stuff_sentry = 0;
 
-  for (auto byte : frame_args) {
+  for (auto it = begin; it != end; ++it, ++stuffed_length) {
+    auto byte = *it;
     stuff_sentry = header[stuff_sentry] == byte ? stuff_sentry + 1 : (header[0] == byte ? 1 : 0);
 
     if (stuff_sentry == sizeof header - 1) {
-      stuff_count++;
+      stuffed_length++;
       stuff_sentry = 0;
     }
   }
 
-  return stuff_count + frame_args.size + sizeof(instruction_t) + sizeof(crc_t);
+  return stuffed_length + sizeof(instruction_t) + sizeof(crc_t);
 }
 
 } // namespace detail
@@ -98,12 +98,12 @@ enum class instruction : detail::instruction_t {
 //! \param id Value of the field 'Packet ID'
 //! \param ins Value of the field 'Instruction'
 //! \param parameters Values of the field 'Param'
-template <typename F, upd::signed_mode Signed_Mode, typename... Args>
+template <typename F, upd::signed_mode Signed_Mode, typename It>
 void write_frame(F &&dest_ftor, upd::signed_mode_h<Signed_Mode> signed_mode, packet_id id, instruction ins,
-                 const Args &...parameters) {
+                 const It &parameters_begin, const It &parameters_end) {
   auto frame = upd::make_tuple(upd::little_endian, signed_mode, detail::header, id, detail::length_t{0},
-                               static_cast<detail::instruction_t>(ins), parameters...);
-  set<2>(frame, detail::calculate_length(frame.template view<4, sizeof...(Args)>()));
+                               static_cast<detail::instruction_t>(ins));
+  set<2>(frame, detail::calculate_length(parameters_begin, parameters_end));
 
   detail::crc_t crc = 0;
   auto write = [&](upd::byte_t byte) {
@@ -111,10 +111,11 @@ void write_frame(F &&dest_ftor, upd::signed_mode_h<Signed_Mode> signed_mode, pac
     crc = (crc << 8u) ^ detail::crc_table[((crc >> 8u) ^ byte) & 0xff];
   };
 
-  std::size_t stuff_sentry = 0;
-  for (auto byte : frame.template view<0, 4>())
+  size_t stuff_sentry = 0;
+  for (auto byte : upd::make_view<0, 4>(frame))
     write(byte);
-  for (auto byte : frame.template view<4, sizeof...(Args)>()) {
+  for (auto it = parameters_begin; it != parameters_end; ++it) {
+    auto byte = *it;
     stuff_sentry = detail::header[stuff_sentry] == byte ? stuff_sentry + 1 : (detail::header[0] == byte ? 1 : 0);
 
     write(byte);
