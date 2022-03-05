@@ -11,15 +11,22 @@ endif()
 
 include(FetchContent)
 
-project(Light-Dynamixel-Protocol
+project(
+  Light-Dynamixel-Protocol
   VERSION 0.0
   LANGUAGES CXX)
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 
 message("Making Unpadded available...")
 FetchContent_Declare(Unpadded
-  GIT_REPOSITORY https://github.com/StarQTius/Unpadded)
+                     GIT_REPOSITORY https://github.com/StarQTius/Unpadded)
 FetchContent_MakeAvailable(Unpadded)
+
+message("Making expected available...")
+set(EXPECTED_BUILD_TESTS OFF)
+FetchContent_Declare(expected
+                     GIT_REPOSITORY https://github.com/TartanLlama/expected)
+FetchContent_MakeAvailable(expected)
 
 add_subdirectory(include)
 
@@ -28,7 +35,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
   if(BUILD_TESTING)
     message("Making Unity available...")
     FetchContent_Declare(Unity
-      GIT_REPOSITORY https://github.com/ThrowTheSwitch/Unity)
+                         GIT_REPOSITORY https://github.com/ThrowTheSwitch/Unity)
     FetchContent_MakeAvailable(Unity)
 
     message("Building test")

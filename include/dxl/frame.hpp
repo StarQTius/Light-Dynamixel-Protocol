@@ -2,8 +2,9 @@
 //! \brief Basic frame handling
 #pragma once
 
-// #include <cstddef>
+#include <type_traits>
 
+#include <tl/expected.hpp>
 #include <upd/tuple.hpp>
 
 #include "detail/def.hpp"
@@ -18,6 +19,9 @@ using length_t = uint16_t;
 //! \brief Type for the field 'Instruction' in frames
 using instruction_t = uint8_t;
 
+//! \brief Type for the field 'Error' in frames
+using error_t = uint8_t;
+
 //! \brief Type for the field 'CRC' in frames
 using crc_t = uint16_t;
 
@@ -26,6 +30,15 @@ constexpr upd::byte_t header[] = {0xff, 0xff, 0xfd, 0x0};
 
 //! \brief Byte added during frame byte stuffing
 constexpr upd::byte_t stuff_byte = 0xfd;
+
+//! \brief Byte denoting a status packet
+constexpr upd::byte_t status_byte = 0x55;
+
+//! \brief Bit mask for the alert flag
+constexpr upd::byte_t alert_bm = 1 << 7;
+
+//! \brief CRC value after computing a full header
+constexpr crc_t crc_after_header = 0x0e28;
 
 //! \brief Table used during CRC calculation
 constexpr crc_t crc_table[] = {
@@ -92,6 +105,26 @@ enum class instruction : detail::instruction_t {
   FAST_BULK_READ = 0x9a
 };
 
+struct error {
+  enum type_t : detail::error_t {
+    OK = 0x0,
+    RESULT_FAIL = 0x1,
+    INSTRUCTION = 0x2,
+    CRC = 0x3,
+    DATA_RANGE = 0x4,
+    DATA_LENGTH = 0x5,
+    DATA_LIMIT = 0x6,
+    ACCESS = 0x7,
+    NOT_STATUS = 0xff,
+    RECEIVED_BAD_CRC = 0xfe
+  };
+
+  type_t type;
+  bool alert;
+
+  error(int type, int alert = false) : type{static_cast<type_t>(type)}, alert(alert) {}
+};
+
 //! \brief Write a frame using the provided output functor
 //! \param dest_ftor Functor called each time the function must send a byte
 //! \param signed_mode Signed number representation in the frame
@@ -127,6 +160,48 @@ void write_frame(F &&dest_ftor, upd::signed_mode_h<Signed_Mode> signed_mode, pac
   }
   for (auto byte : upd::make_tuple(upd::little_endian, signed_mode, crc))
     FWD(dest_ftor)(byte);
+}
+
+template <typename F, upd::signed_mode Signed_Mode, typename It>
+tl::expected<packet_id, error> read_headerless_frame(F &&src_ftor, upd::signed_mode_h<Signed_Mode> signed_mode, It it) {
+  auto frame = upd::make_tuple<packet_id, detail::length_t, detail::instruction_t, detail::error_t>(upd::little_endian,
+                                                                                                    signed_mode);
+  detail::crc_t crc = detail::crc_after_header;
+  auto read = [&]() {
+    auto byte = src_ftor();
+    crc = (crc << 8u) ^ detail::crc_table[((crc >> 8u) ^ byte) & 0xff];
+    return byte;
+  };
+
+  for (auto &byte : frame)
+    byte = read();
+
+  if (upd::get<2>(frame) != detail::status_byte)
+    return tl::make_unexpected(error::NOT_STATUS);
+
+  size_t stuff_sentry = 0;
+  auto rcv_length = upd::get<1>(frame) - sizeof(detail::instruction_t) - sizeof(detail::crc_t);
+  for (; rcv_length != 1; rcv_length--) {
+    auto byte = read();
+    stuff_sentry = detail::header[stuff_sentry] == byte ? stuff_sentry + 1 : (detail::header[0] == byte ? 1 : 0);
+
+    if (stuff_sentry == sizeof detail::header - 1) {
+      read();
+      stuff_sentry = 0;
+    }
+
+    *it++ = byte;
+  }
+
+  for (auto byte : upd::make_tuple(upd::little_endian, signed_mode, crc))
+    if (byte != src_ftor())
+      return tl::make_unexpected(error::RECEIVED_BAD_CRC);
+
+  auto err = upd::get<3>(frame);
+  if (err != static_cast<error_t>(error::OK))
+    return tl::make_unexpected(error{err & ~detail::alert_bm, err & detail::alert_bm});
+
+  return upd::get<0>(frame);
 }
 
 } // namespace v2
