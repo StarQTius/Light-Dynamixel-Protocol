@@ -105,6 +105,10 @@ enum class instruction : detail::instruction_t {
   FAST_BULK_READ = 0x9a
 };
 
+//! \brief Used to indicate the status of an operation
+//! \details
+//!   It aggregates the library status code and the DYNAMIXEL Protocol 2.0 error code.
+//!   The alert flag behaves as defined by the DYNAMIXEL Protocol 2.0.
 struct error {
   enum type_t : detail::error_t {
     OK = 0x0,
@@ -162,8 +166,18 @@ void write_frame(F &&dest_ftor, upd::signed_mode_h<Signed_Mode> signed_mode, pac
     FWD(dest_ftor)(byte);
 }
 
+//! \brief Read a frame content (without header) from an input functor
+//! \param src_ftor functor called each time a new byte of the frame must be read
+//! \param signed_mode signed number representation in the frame
+//! \param parameters_it output iterator to write the byte sequence describing the parameters
+//! \return the identifier of the received frame on success, otherwise :
+//!   - error::NOT_STATUS if the frame instruction field does not denote a status frame (in that case, parameters are
+//!   not output)
+//!   - error::RECEIVED_BAD_CRC if the frame CRC is incorrect
+//!   - the error field of the frame if it does not indicate a success
 template <typename F, upd::signed_mode Signed_Mode, typename It>
-tl::expected<packet_id, error> read_headerless_frame(F &&src_ftor, upd::signed_mode_h<Signed_Mode> signed_mode, It it) {
+tl::expected<packet_id, error> read_headerless_frame(F &&src_ftor, upd::signed_mode_h<Signed_Mode> signed_mode,
+                                                     It parameters_it) {
   auto frame = upd::make_tuple<packet_id, detail::length_t, detail::instruction_t, detail::error_t>(upd::little_endian,
                                                                                                     signed_mode);
   detail::crc_t crc = detail::crc_after_header;
