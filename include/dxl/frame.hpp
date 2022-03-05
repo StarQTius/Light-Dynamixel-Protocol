@@ -63,7 +63,7 @@ constexpr crc_t crc_table[] = {
     0x0208, 0x820d, 0x8207, 0x0202};
 
 //! \brief Calculate the value of the field 'Length' in a frame
-template <typename It> length_t calculate_length(const It &begin, const It &end) {
+template <typename It> length_t calculate_length(It begin, It end) {
   length_t stuffed_length = 0;
   size_t stuff_sentry = 0;
 
@@ -133,7 +133,7 @@ struct error {
 //! \param parameters Values of the field 'Param'
 template <typename F, upd::signed_mode Signed_Mode, typename It>
 void write_frame(F &&dest_ftor, upd::signed_mode_h<Signed_Mode> signed_mode, packet_id id, instruction ins,
-                 const It &parameters_begin, const It &parameters_end) {
+                 It parameters_begin, It parameters_end) {
   auto frame = upd::make_tuple(upd::little_endian, signed_mode, detail::header, id, detail::length_t{0},
                                static_cast<detail::instruction_t>(ins));
   set<2>(frame, detail::calculate_length(parameters_begin, parameters_end));
