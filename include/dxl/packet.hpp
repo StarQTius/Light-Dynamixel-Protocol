@@ -1,5 +1,5 @@
 //! \file
-//! \brief Basic frame handling
+//! \brief Basic packet handling
 #pragma once
 
 #include <type_traits>
@@ -13,22 +13,22 @@ namespace dxl {
 inline namespace v2 {
 namespace detail {
 
-//! \brief Type for the field 'Length' in frames
+//! \brief Type for the field 'Length' in packets
 using length_t = uint16_t;
 
-//! \brief Type for the field 'Instruction' in frames
+//! \brief Type for the field 'Instruction' in packets
 using instruction_t = uint8_t;
 
-//! \brief Type for the field 'Error' in frames
+//! \brief Type for the field 'Error' in packets
 using error_t = uint8_t;
 
-//! \brief Type for the field 'CRC' in frames
+//! \brief Type for the field 'CRC' in packets
 using crc_t = uint16_t;
 
-//! \brief Value of the field 'Header' in frames
+//! \brief Value of the field 'Header' in packets
 constexpr upd::byte_t header[] = {0xff, 0xff, 0xfd, 0x0};
 
-//! \brief Byte added during frame byte stuffing
+//! \brief Byte added during packet byte stuffing
 constexpr upd::byte_t stuffing_byte = 0xfd;
 
 //! \brief Byte denoting a status packet
@@ -83,7 +83,7 @@ struct sentry {
   }
 };
 
-//! \brief Calculate the value of the field 'Length' in a frame
+//! \brief Calculate the value of the field 'Length' in a packet
 template <typename It> length_t calculate_length(It begin, It end) {
   length_t stuffed_length = 0;
   size_t stuff_sentry = 0;
@@ -103,7 +103,7 @@ template <typename It> length_t calculate_length(It begin, It end) {
 
 } // namespace detail
 
-//! \brief Type for the field 'Packet ID' in frames
+//! \brief Type for the field 'Packet ID' in packets
 using packet_id = uint8_t;
 
 //! \brief Enumeration of the different values for the 'Instruction' field
@@ -150,19 +150,19 @@ struct error {
   error(int type, int alert = false) : type{static_cast<type_t>(type)}, alert(alert) {}
 };
 
-//! \brief Write a frame using the provided output functor
+//! \brief Write a packet using the provided output functor
 //! \param dest_ftor Functor called each time the function must send a byte
-//! \param signed_mode Signed number representation in the frame
+//! \param signed_mode Signed number representation in the packet
 //! \param id Value of the field 'Packet ID'
 //! \param ins Value of the field 'Instruction'
 //! \param parameters Values of the field 'Param'
 template <typename F, upd::signed_mode Signed_Mode, typename It>
-void write_frame(F &&dest_ftor, upd::signed_mode_h<Signed_Mode> signed_mode, packet_id id, instruction ins,
-                 It parameters_begin, It parameters_end) {
+void write_packet(F &&dest_ftor, upd::signed_mode_h<Signed_Mode> signed_mode, packet_id id, instruction ins,
+                  It parameters_begin, It parameters_end) {
   using namespace detail;
 
-  auto frame = upd::make_tuple(upd::little_endian, signed_mode, header, id,
-                               calculate_length(parameters_begin, parameters_end), static_cast<instruction_t>(ins));
+  auto packet = upd::make_tuple(upd::little_endian, signed_mode, header, id,
+                                calculate_length(parameters_begin, parameters_end), static_cast<instruction_t>(ins));
   crc_t crc = 0;
 
   auto write = [&](upd::byte_t byte) {
@@ -170,7 +170,7 @@ void write_frame(F &&dest_ftor, upd::signed_mode_h<Signed_Mode> signed_mode, pac
     advance_crc(crc, byte);
   };
 
-  for (auto byte : upd::make_view<0, 4>(frame))
+  for (auto byte : upd::make_view<0, 4>(packet))
     write(byte);
 
   sentry s;
@@ -185,18 +185,18 @@ void write_frame(F &&dest_ftor, upd::signed_mode_h<Signed_Mode> signed_mode, pac
     dest_ftor(byte);
 }
 
-//! \brief Read a frame content (without header) from an input functor
-//! \param src_ftor functor called each time a new byte of the frame must be read
-//! \param signed_mode signed number representation in the frame
+//! \brief Read a packet content (without header) from an input functor
+//! \param src_ftor functor called each time a new byte of the packet must be read
+//! \param signed_mode signed number representation in the packet
 //! \param parameters_it output iterator to write the byte sequence describing the parameters
-//! \return the identifier of the received frame on success, otherwise :
-//!   - error::NOT_STATUS if the frame instruction field does not denote a status frame (in that case, parameters are
+//! \return the identifier of the received packet on success, otherwise :
+//!   - error::NOT_STATUS if the packet instruction field does not denote a status packet (in that case, parameters are
 //!   not output)
-//!   - error::RECEIVED_BAD_CRC if the frame CRC is incorrect
-//!   - the error field of the frame if it does not indicate a success
+//!   - error::RECEIVED_BAD_CRC if the packet CRC is incorrect
+//!   - the error field of the packet if it does not indicate a success
 template <typename F, upd::signed_mode Signed_Mode, typename It>
-tl::expected<packet_id, error> read_headerless_frame(F &&src_ftor, upd::signed_mode_h<Signed_Mode> signed_mode,
-                                                     It parameters_it) {
+tl::expected<packet_id, error> read_headerless_packet(F &&src_ftor, upd::signed_mode_h<Signed_Mode> signed_mode,
+                                                      It parameters_it) {
   using namespace detail;
 
   auto metadata = upd::make_tuple<packet_id, length_t, instruction_t, error_t>(upd::little_endian, signed_mode);
