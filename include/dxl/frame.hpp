@@ -29,16 +29,13 @@ using crc_t = uint16_t;
 constexpr upd::byte_t header[] = {0xff, 0xff, 0xfd, 0x0};
 
 //! \brief Byte added during frame byte stuffing
-constexpr upd::byte_t stuff_byte = 0xfd;
+constexpr upd::byte_t stuffing_byte = 0xfd;
 
 //! \brief Byte denoting a status packet
 constexpr upd::byte_t status_byte = 0x55;
 
 //! \brief Bit mask for the alert flag
 constexpr upd::byte_t alert_bm = 1 << 7;
-
-//! \brief CRC value after computing a full header
-constexpr crc_t crc_after_header = 0x0e28;
 
 //! \brief Table used during CRC calculation
 constexpr crc_t crc_table[] = {
@@ -61,6 +58,30 @@ constexpr crc_t crc_table[] = {
     0x8243, 0x0246, 0x024c, 0x8249, 0x0258, 0x825d, 0x8257, 0x0252, 0x0270, 0x8275, 0x827f, 0x027a, 0x826b, 0x026e,
     0x0264, 0x8261, 0x0220, 0x8225, 0x822f, 0x022a, 0x823b, 0x023e, 0x0234, 0x8231, 0x8213, 0x0216, 0x021c, 0x8219,
     0x0208, 0x820d, 0x8207, 0x0202};
+
+//! \brief Compute the next CRC value according the provided byte sequence
+void advance_crc(crc_t &crc, upd::byte_t byte) { crc = (crc << 8u) ^ crc_table[((crc >> 8u) ^ byte) & 0xff]; }
+template <typename R> void advance_crc(crc_t &crc, R &&seq) {
+  for (auto byte : FWD(seq))
+    advance_crc(crc, byte);
+}
+
+//! \brief Counts up the element of a byte sequence and indicates if the next byte must be a stuffing byte
+struct sentry {
+  std::size_t count;
+
+  sentry() : count{0} {}
+
+  bool operator()(upd::byte_t byte) {
+    count = header[count] == byte ? count + 1 : (header[0] == byte ? 1 : 0);
+    if (count == sizeof header - 1) {
+      count = 0;
+      return true;
+    } else {
+      return false;
+    }
+  }
+};
 
 //! \brief Calculate the value of the field 'Length' in a frame
 template <typename It> length_t calculate_length(It begin, It end) {
@@ -138,32 +159,30 @@ struct error {
 template <typename F, upd::signed_mode Signed_Mode, typename It>
 void write_frame(F &&dest_ftor, upd::signed_mode_h<Signed_Mode> signed_mode, packet_id id, instruction ins,
                  It parameters_begin, It parameters_end) {
-  auto frame = upd::make_tuple(upd::little_endian, signed_mode, detail::header, id, detail::length_t{0},
-                               static_cast<detail::instruction_t>(ins));
-  set<2>(frame, detail::calculate_length(parameters_begin, parameters_end));
+  using namespace detail;
 
-  detail::crc_t crc = 0;
+  auto frame = upd::make_tuple(upd::little_endian, signed_mode, header, id,
+                               calculate_length(parameters_begin, parameters_end), static_cast<instruction_t>(ins));
+  crc_t crc = 0;
+
   auto write = [&](upd::byte_t byte) {
-    FWD(dest_ftor)(byte);
-    crc = (crc << 8u) ^ detail::crc_table[((crc >> 8u) ^ byte) & 0xff];
+    dest_ftor(byte);
+    advance_crc(crc, byte);
   };
 
-  size_t stuff_sentry = 0;
   for (auto byte : upd::make_view<0, 4>(frame))
     write(byte);
+
+  sentry s;
   for (auto it = parameters_begin; it != parameters_end; ++it) {
     auto byte = *it;
-    stuff_sentry = detail::header[stuff_sentry] == byte ? stuff_sentry + 1 : (detail::header[0] == byte ? 1 : 0);
-
+    if (s(byte))
+      write(stuffing_byte);
     write(byte);
-
-    if (stuff_sentry == sizeof detail::header - 1) {
-      write(detail::stuff_byte);
-      stuff_sentry = 0;
-    }
   }
+
   for (auto byte : upd::make_tuple(upd::little_endian, signed_mode, crc))
-    FWD(dest_ftor)(byte);
+    dest_ftor(byte);
 }
 
 //! \brief Read a frame content (without header) from an input functor
@@ -178,44 +197,44 @@ void write_frame(F &&dest_ftor, upd::signed_mode_h<Signed_Mode> signed_mode, pac
 template <typename F, upd::signed_mode Signed_Mode, typename It>
 tl::expected<packet_id, error> read_headerless_frame(F &&src_ftor, upd::signed_mode_h<Signed_Mode> signed_mode,
                                                      It parameters_it) {
-  auto frame = upd::make_tuple<packet_id, detail::length_t, detail::instruction_t, detail::error_t>(upd::little_endian,
-                                                                                                    signed_mode);
-  detail::crc_t crc = detail::crc_after_header;
+  using namespace detail;
+
+  auto metadata = upd::make_tuple<packet_id, length_t, instruction_t, error_t>(upd::little_endian, signed_mode);
+  crc_t crc = 0;
+  advance_crc(crc, header);
+
   auto read = [&]() {
     auto byte = src_ftor();
-    crc = (crc << 8u) ^ detail::crc_table[((crc >> 8u) ^ byte) & 0xff];
+    advance_crc(crc, byte);
     return byte;
   };
 
-  for (auto &byte : frame)
+  for (auto &byte : metadata)
     byte = read();
+  auto id = upd::get<0>(metadata);
+  auto length = upd::get<1>(metadata) - sizeof(instruction_t) - sizeof(crc_t) - sizeof(error_t);
+  auto ins = upd::get<2>(metadata);
+  auto err = upd::get<3>(metadata);
 
-  if (upd::get<2>(frame) != detail::status_byte)
+  if (ins != status_byte)
     return tl::make_unexpected(error::NOT_STATUS);
 
-  size_t stuff_sentry = 0;
-  auto rcv_length = upd::get<1>(frame) - sizeof(detail::instruction_t) - sizeof(detail::crc_t);
-  for (; rcv_length != 1; rcv_length--) {
+  sentry s;
+  for (; length != 0; ++parameters_it, --length) {
     auto byte = read();
-    stuff_sentry = detail::header[stuff_sentry] == byte ? stuff_sentry + 1 : (detail::header[0] == byte ? 1 : 0);
-
-    if (stuff_sentry == sizeof detail::header - 1) {
+    if (s(byte))
       read();
-      stuff_sentry = 0;
-    }
-
-    *it++ = byte;
+    *parameters_it = byte;
   }
 
   for (auto byte : upd::make_tuple(upd::little_endian, signed_mode, crc))
     if (byte != src_ftor())
       return tl::make_unexpected(error::RECEIVED_BAD_CRC);
 
-  auto err = upd::get<3>(frame);
   if (err != static_cast<error_t>(error::OK))
-    return tl::make_unexpected(error{err & ~detail::alert_bm, err & detail::alert_bm});
+    return tl::make_unexpected(error{err & ~alert_bm, err & alert_bm});
 
-  return upd::get<0>(frame);
+  return id;
 }
 
 } // namespace v2
