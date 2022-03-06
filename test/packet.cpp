@@ -1,6 +1,6 @@
-#include <dxl/packet.hpp>
-
 #include <unity.h>
+
+#include <dxl/packet.hpp>
 
 #ifdef FWD
 #error "Private macros have leaked"

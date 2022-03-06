@@ -1,18 +1,19 @@
-add_executable(run_ut_packet packet.cpp)
-set_target_properties(run_ut_packet PROPERTIES CXX_STANDARD 11)
+FetchContent_MakeAvailable(Unity)
+
+add_library(unit_testing INTERFACE)
+target_compile_features(unit_testing INTERFACE cxx_std_11)
 target_compile_options(
-  run_ut_packet
-  PRIVATE
+  unit_testing
+  INTERFACE
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:
     -Wall
     -Werror>
-    $<$<CXX_COMPILER_ID:MSVC>:
-    /W4
-    /WX>
     $<$<CXX_COMPILER_ID:GNU>:
     -fdiagnostics-color=always>
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:
     -fcolor-diagnostics>)
+target_link_libraries(unit_testing INTERFACE unity::framework LDP)
 
-target_link_libraries(run_ut_packet PRIVATE unity::framework LDP)
-add_test(NAME ut_packet COMMAND run_ut_packet)
+add_executable(run_packet packet.cpp)
+target_link_libraries(run_packet PRIVATE unit_testing)
+add_test(NAME packet COMMAND run_packet)

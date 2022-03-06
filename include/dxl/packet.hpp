@@ -2,10 +2,14 @@
 //! \brief Basic packet handling
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
 #include <type_traits>
 
 #include <tl/expected.hpp>
+#include <upd/format.hpp>
 #include <upd/tuple.hpp>
+#include <upd/type.hpp>
 
 #include "detail/def.hpp"
 
@@ -240,4 +244,4 @@ tl::expected<packet_id, error> read_headerless_packet(F &&src_ftor, upd::signed_
 } // namespace v2
 } // namespace dxl
 
-#include "detail/undef.hpp"
+#include "detail/undef.hpp" // IWYU pragma: keep

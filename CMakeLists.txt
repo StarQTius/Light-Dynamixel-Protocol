@@ -1,44 +1,26 @@
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.21)
 
-message("Finding ccache...")
-find_program(CCACHE_FOUND ccache)
-if(CCACHE_FOUND)
-  message(STATUS "ccache found")
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
-else()
-  message(WARNING "ccache not found")
-endif()
+project(Light-Dynamixel-Protocol LANGUAGES CXX)
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/tool)
+include(${PROJECT_NAME})
 
 include(FetchContent)
 
-project(
-  Light-Dynamixel-Protocol
-  VERSION 0.0
-  LANGUAGES CXX)
-set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
-
-message("Making Unpadded available...")
-FetchContent_Declare(Unpadded
-                     GIT_REPOSITORY https://github.com/StarQTius/Unpadded)
-FetchContent_MakeAvailable(Unpadded)
-
-message("Making expected available...")
-set(EXPECTED_BUILD_TESTS OFF)
 FetchContent_Declare(expected
                      GIT_REPOSITORY https://github.com/TartanLlama/expected)
-FetchContent_MakeAvailable(expected)
+
+FetchContent_Declare(Unpadded
+                     GIT_REPOSITORY https://github.com/StarQTius/Unpadded)
+
+if(DEFINED CMAKE_CXX_INCLUDE_WHAT_YOU_USE)
+  set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+endif()
 
 add_subdirectory(include)
 
-if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-  enable_testing()
-  if(BUILD_TESTING)
-    message("Making Unity available...")
-    FetchContent_Declare(Unity
-                         GIT_REPOSITORY https://github.com/ThrowTheSwitch/Unity)
-    FetchContent_MakeAvailable(Unity)
-
-    message("Building test")
-    add_subdirectory(test)
-  endif()
+if(${PROJECT_NAME}_IS_TOP_LEVEL AND BUILD_TESTING)
+  include(CTest)
+  FetchContent_Declare(Unity
+                       GIT_REPOSITORY https://github.com/ThrowTheSwitch/Unity)
+  add_subdirectory(test)
 endif()
