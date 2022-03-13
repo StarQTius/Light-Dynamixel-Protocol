@@ -12,6 +12,9 @@ FetchContent_Declare(expected
 FetchContent_Declare(Unpadded
                      GIT_REPOSITORY https://github.com/StarQTius/Unpadded)
 
+FetchContent_Declare(Unity
+                     GIT_REPOSITORY https://github.com/ThrowTheSwitch/Unity)
+
 if(DEFINED CMAKE_CXX_INCLUDE_WHAT_YOU_USE)
   set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 endif()
@@ -20,7 +23,6 @@ add_subdirectory(include)
 
 if(${PROJECT_NAME}_IS_TOP_LEVEL AND BUILD_TESTING)
   include(CTest)
-  FetchContent_Declare(Unity
-                       GIT_REPOSITORY https://github.com/ThrowTheSwitch/Unity)
+
   add_subdirectory(test)
 endif()
