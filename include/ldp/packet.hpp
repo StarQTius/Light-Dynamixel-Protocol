@@ -2,8 +2,10 @@
 //! \brief Basic packet handling
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <iterator>
 
 #include <tl/expected.hpp>
 #include <upd/format.hpp>
@@ -88,20 +90,7 @@ struct sentry {
 
 //! \brief Calculate the value of the field 'Length' in a packet
 template <typename It> length_t calculate_length(It begin, It end) {
-  length_t stuffed_length = 0;
-  size_t stuff_sentry = 0;
-
-  for (auto it = begin; it != end; ++it, ++stuffed_length) {
-    auto byte = *it;
-    stuff_sentry = header[stuff_sentry] == byte ? stuff_sentry + 1 : (header[0] == byte ? 1 : 0);
-
-    if (stuff_sentry == sizeof header - 1) {
-      stuffed_length++;
-      stuff_sentry = 0;
-    }
-  }
-
-  return stuffed_length + sizeof(instruction_t) + sizeof(crc_t);
+  return std::distance(begin, end) + std::count_if(begin, end, sentry{}) + sizeof(instruction_t) + sizeof(crc_t);
 }
 
 } // namespace detail
