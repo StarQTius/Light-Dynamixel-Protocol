@@ -12,7 +12,7 @@ target_compile_options(
     -fdiagnostics-color=always>
     $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>>:
     -fcolor-diagnostics>)
-target_link_libraries(unit_testing INTERFACE unity::framework LDP)
+target_link_libraries(unit_testing INTERFACE unity::framework ${PROJECT_NAME})
 
 add_executable(run_packet packet.cpp)
 target_link_libraries(run_packet PRIVATE unit_testing)
