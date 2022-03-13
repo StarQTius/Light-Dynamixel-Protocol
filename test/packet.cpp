@@ -1,10 +1,6 @@
-#include <unity.h>
-
 #include <ldp/packet.hpp>
 
-#ifdef FWD
-#error "Private macros have leaked"
-#endif // FWD
+#include "utility.hpp"
 
 static void packet_DO_send_a_packet() {
   using namespace ldp;
@@ -35,9 +31,6 @@ static void packet_DO_receive_a_headerless_packet() {
   TEST_ASSERT_EQUAL_HEX8(0x0, output[4]);
   TEST_ASSERT_EQUAL_HEX8_ARRAY(input + 9, output, 4);
 }
-
-extern "C" void setUp() {}
-extern "C" void tearDown() {}
 
 int main() {
   UNITY_BEGIN();

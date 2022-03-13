@@ -17,3 +17,7 @@ target_link_libraries(unit_testing INTERFACE unity::framework ${PROJECT_NAME})
 add_executable(run_packet packet.cpp)
 target_link_libraries(run_packet PRIVATE unit_testing)
 add_test(NAME packet COMMAND run_packet)
+
+add_executable(run_sentry sentry.cpp)
+target_link_libraries(run_sentry PRIVATE unit_testing)
+add_test(NAME sentry COMMAND run_sentry)
