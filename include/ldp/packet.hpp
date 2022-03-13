@@ -4,7 +4,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <type_traits>
 
 #include <tl/expected.hpp>
 #include <upd/format.hpp>
@@ -220,8 +219,7 @@ tl::expected<packet_id, error> read_headerless_packet(F &&src_ftor, upd::signed_
   auto ins = upd::get<2>(metadata);
   auto err = upd::get<3>(metadata);
 
-  if (ins != status_byte)
-    return tl::make_unexpected(error::NOT_STATUS);
+  ASSERT(ins != status_byte, error::NOT_STATUS);
 
   sentry s;
   for (; length != 0; ++parameters_it, --length) {
@@ -232,11 +230,8 @@ tl::expected<packet_id, error> read_headerless_packet(F &&src_ftor, upd::signed_
   }
 
   for (auto byte : upd::make_tuple(upd::little_endian, signed_mode, crc))
-    if (byte != src_ftor())
-      return tl::make_unexpected(error::RECEIVED_BAD_CRC);
-
-  if (err != static_cast<error_t>(error::OK))
-    return tl::make_unexpected(error{err & ~alert_bm, err & alert_bm});
+    ASSERT(byte != src_ftor(), error::RECEIVED_BAD_CRC);
+  ASSERT(err != static_cast<error_t>(error::OK), (error{err & ~alert_bm, err & alert_bm}));
 
   return id;
 }
