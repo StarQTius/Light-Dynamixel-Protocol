@@ -1,13 +1,13 @@
 #include <unity.h>
 
-#include <dxl/packet.hpp>
+#include <ldp/packet.hpp>
 
 #ifdef FWD
 #error "Private macros have leaked"
 #endif // FWD
 
 static void packet_DO_send_a_packet() {
-  using namespace dxl;
+  using namespace ldp;
 
   upd::byte_t buf[64], *ptr = buf;
   auto tuple = upd::make_tuple(uint16_t{132}, uint16_t{4});
@@ -20,7 +20,7 @@ static void packet_DO_send_a_packet() {
 }
 
 static void packet_DO_receive_a_headerless_packet() {
-  using namespace dxl;
+  using namespace ldp;
 
   constexpr upd::byte_t input[] = {0xff, 0xff, 0xfd, 0x00, 0x01, 0x08, 0x00, 0x55,
                                    0x00, 0xa6, 0x00, 0x00, 0x00, 0x8c, 0xc0};

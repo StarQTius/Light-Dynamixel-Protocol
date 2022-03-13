@@ -13,7 +13,7 @@
 
 #include "detail/def.hpp"
 
-namespace dxl {
+namespace ldp {
 inline namespace v2 {
 namespace detail {
 
@@ -242,6 +242,6 @@ tl::expected<packet_id, error> read_headerless_packet(F &&src_ftor, upd::signed_
 }
 
 } // namespace v2
-} // namespace dxl
+} // namespace ldp
 
 #include "detail/undef.hpp" // IWYU pragma: keep
