@@ -63,7 +63,7 @@ constexpr crc_t crc_table[] = {
     0x0208, 0x820d, 0x8207, 0x0202};
 
 //! \brief Compute the next CRC value according the provided byte sequence
-void advance_crc(crc_t &crc, upd::byte_t byte) { crc = (crc << 8u) ^ crc_table[((crc >> 8u) ^ byte) & 0xff]; }
+inline void advance_crc(crc_t &crc, upd::byte_t byte) { crc = (crc << 8u) ^ crc_table[((crc >> 8u) ^ byte) & 0xff]; }
 template <typename R> void advance_crc(crc_t &crc, R &&seq) {
   for (auto byte : FWD(seq))
     advance_crc(crc, byte);
