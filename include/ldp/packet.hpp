@@ -28,6 +28,9 @@ template <typename It> length_t calculate_length(It begin, It end) {
 //! \brief Type for the field 'Packet ID' in packets
 using packet_id = uint8_t;
 
+//! \brief Value of the broadcast identifier
+constexpr packet_id broadcast = 0xfe;
+
 //! \brief Enumeration of the different values for the 'Instruction' field
 enum class instruction : detail::instruction_t {
   PING = 0x1,

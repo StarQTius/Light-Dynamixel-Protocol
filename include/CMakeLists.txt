@@ -1,7 +1,14 @@
 FetchContent_MakeAvailable(expected Unpadded)
 
-set(LDP_HEADERS packet.hpp sentry.hpp detail/def.hpp detail/packet.hpp
-                detail/undef.hpp)
+set(LDP_HEADERS
+    packet.hpp
+    ping.hpp
+    request.hpp
+    sentry.hpp
+    detail/def.hpp
+    detail/packet.hpp
+    detail/sfinae.hpp
+    detail/undef.hpp)
 
 add_library(${PROJECT_NAME} INTERFACE)
 target_include_directories(${PROJECT_NAME}

@@ -21,3 +21,7 @@ add_test(NAME packet COMMAND run_packet)
 add_executable(run_sentry sentry.cpp)
 target_link_libraries(run_sentry PRIVATE unit_testing)
 add_test(NAME sentry COMMAND run_sentry)
+
+add_executable(run_request request.cpp)
+target_link_libraries(run_request PRIVATE unit_testing)
+add_test(NAME request COMMAND run_request)
