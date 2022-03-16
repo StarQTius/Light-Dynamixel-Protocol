@@ -1,10 +1,12 @@
 FetchContent_MakeAvailable(expected Unpadded)
 
 set(LDP_HEADERS
+    memzone.hpp
     packet.hpp
     ping.hpp
     request.hpp
     sentry.hpp
+    write.hpp
     detail/def.hpp
     detail/packet.hpp
     detail/sfinae.hpp

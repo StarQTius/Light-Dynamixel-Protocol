@@ -2,6 +2,7 @@
 #include <vector>
 
 #include <ldp/ping.hpp>
+#include <ldp/write.hpp>
 
 #include "utility.hpp"
 
@@ -36,8 +37,21 @@ void request_DO_send_a_ping_request() {
       .or_else([](error) { TEST_FAIL(); });
 }
 
+void request_DO_send_a_write_request() {
+  using namespace ldp;
+
+  mock_bus mb{{0xff, 0xff, 0xfd, 0x00, 0x01, 0x09, 0x00, 0x03, 0x74, 0x00, 0x00, 0x02, 0x00, 0x00, 0xca, 0x89},
+              {0x01, 0x04, 0x00, 0x55, 0x00, 0xa1, 0x0c}};
+
+  auto t = write(0x01, memzone<116, uint32_t>{}, 512) >> mb.buf.begin();
+  mb.shift();
+  auto response = t << mb.buf.begin();
+  response.map([](packet_id id) { TEST_ASSERT_EQUAL(0x01, id); }).or_else([](error) { TEST_FAIL(); });
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(request_DO_send_a_ping_request);
+  RUN_TEST(request_DO_send_a_write_request);
   return UNITY_END();
 }
