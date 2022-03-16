@@ -28,7 +28,8 @@ public:
   //! \param ftor Functor which delivers a byte each time it is called
   template <typename F, sfinae::require_input_ftor<F> = 0> tl::expected<T, error> operator<<(F &&ftor) const {
     upd::tuple<upd::endianess::LITTLE, Signed_Mode, Ts...> parameters;
-    auto maybe_id = read_headerless_packet(FWD(ftor), upd::signed_mode_h<Signed_Mode>{}, parameters.begin());
+    auto maybe_id =
+        read_headerless_packet(FWD(ftor), upd::signed_mode_h<Signed_Mode>{}, parameters.begin(), parameters.end());
 
     auto make_value = [&](packet_id id) { return parameters.invoke([&](const Ts &...xs) { return T{id, xs...}; }); };
     return maybe_id.map(make_value);

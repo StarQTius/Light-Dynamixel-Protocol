@@ -65,8 +65,9 @@ struct error {
     DATA_LENGTH = 0x5,
     DATA_LIMIT = 0x6,
     ACCESS = 0x7,
-    NOT_STATUS = 0xff,
-    RECEIVED_BAD_CRC = 0xfe
+    NOT_STATUS,
+    BAD_LENGTH,
+    RECEIVED_BAD_CRC
   };
 
   type_t type;
@@ -113,15 +114,16 @@ void write_packet(F &&dest_ftor, upd::signed_mode_h<Signed_Mode> signed_mode, pa
 //! \brief Read a packet content (without header) from an input functor
 //! \param src_ftor functor called each time a new byte of the packet must be read
 //! \param signed_mode signed number representation in the packet
-//! \param parameters_it output iterator to write the byte sequence describing the parameters
+//! \param parameters_begin, parameters_end Range to write the parameters on
 //! \return the identifier of the received packet on success, otherwise :
 //!   - error::NOT_STATUS if the packet instruction field does not denote a status packet (in that case, parameters are
 //!   not output)
+//!   - error::BAD_LENGTH if the packet length does not perfectly fit the provided range
 //!   - error::RECEIVED_BAD_CRC if the packet CRC is incorrect
 //!   - the error field of the packet if it does not indicate a success
 template <typename F, upd::signed_mode Signed_Mode, typename It>
 tl::expected<packet_id, error> read_headerless_packet(F &&src_ftor, upd::signed_mode_h<Signed_Mode> signed_mode,
-                                                      It parameters_it) {
+                                                      It parameters_begin, It parameters_end) {
   using namespace detail;
 
   auto metadata = upd::make_tuple<packet_id, length_t, instruction_t, error_t>(upd::little_endian, signed_mode);
@@ -141,19 +143,20 @@ tl::expected<packet_id, error> read_headerless_packet(F &&src_ftor, upd::signed_
   auto ins = upd::get<2>(metadata);
   auto err = upd::get<3>(metadata);
 
-  ASSERT(ins != status_byte, error::NOT_STATUS);
+  ASSERT(ins == status_byte, error::NOT_STATUS);
 
   stuffing_sentry s;
-  for (; length != 0; ++parameters_it, --length) {
+  for (; length != 0 && parameters_begin != parameters_end; ++parameters_begin, --length) {
     auto byte = read();
     if (s(byte))
       read();
-    *parameters_it = byte;
+    *parameters_begin = byte;
   }
+  ASSERT(length == 0 && parameters_begin == parameters_end, error::BAD_LENGTH);
 
   for (auto byte : upd::make_tuple(upd::little_endian, signed_mode, crc))
-    ASSERT(byte != src_ftor(), error::RECEIVED_BAD_CRC);
-  ASSERT(err != static_cast<error_t>(error::OK), (error{err & ~alert_bm, err & alert_bm}));
+    ASSERT(byte == src_ftor(), error::RECEIVED_BAD_CRC);
+  ASSERT(err == static_cast<error_t>(error::OK), (error{err & ~alert_bm, err & alert_bm}));
 
   return id;
 }
