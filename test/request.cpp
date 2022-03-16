@@ -1,4 +1,3 @@
-#include <list>
 #include <vector>
 
 #include <ldp/ping.hpp>
@@ -19,7 +18,7 @@ struct mock_bus {
   }
 };
 
-void request_DO_send_a_ping_request() {
+static void request_DO_send_a_ping_request() {
   using namespace ldp;
 
   mock_bus mb{{0xff, 0xff, 0xfd, 0x00, 0x01, 0x03, 0x00, 0x01, 0x19, 0x4e},
@@ -37,7 +36,7 @@ void request_DO_send_a_ping_request() {
       .or_else([](error) { TEST_FAIL(); });
 }
 
-void request_DO_send_a_write_request() {
+static void request_DO_send_a_write_request() {
   using namespace ldp;
 
   mock_bus mb{{0xff, 0xff, 0xfd, 0x00, 0x01, 0x09, 0x00, 0x03, 0x74, 0x00, 0x00, 0x02, 0x00, 0x00, 0xca, 0x89},
