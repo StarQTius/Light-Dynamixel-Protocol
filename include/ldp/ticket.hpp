@@ -14,6 +14,7 @@
 #include "detail/def.hpp"
 
 namespace ldp {
+inline namespace v2 {
 
 //! \brief Stores a callback to be called on the response from a device
 //! \details This class is non-templated, therefore it is suitable for storage.
@@ -82,6 +83,7 @@ public:
   template <typename F> ticket_with_hook with_hook(F &&hook) { return ticket_with_hook{FWD(hook), *this}; }
 };
 
+} // namespace v2
 } // namespace ldp
 
 #include "detail/undef.hpp" // IWYU pragma: keep
