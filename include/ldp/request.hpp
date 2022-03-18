@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <tl/expected.hpp>
 #include <upd/format.hpp>
 #include <upd/tuple.hpp>
 #include <upd/type.hpp>
@@ -15,37 +14,37 @@
 
 namespace ldp {
 inline namespace v2 {
+namespace detail {
 
-//! \brief Process packets following a sent request
-//! \tparam Signed_Mode Signed integer convention of the received packet
-//! \tparam T Type of the value extracted from the packets
-//! \tparam Ts Type mapping of the 'Parameters' field
-template <upd::signed_mode Signed_Mode, typename T, typename... Ts> class ticket {
+//! \brief Base class defining members for request classes using CRTP
+//! \details Deriving classes must define a 'write' function member that accepts a functor and returns a ticket.
+template <typename D, typename Tk> class request_base {
+  D &derived() { return reinterpret_cast<D &>(*this); }
+  const D &derived() const { return reinterpret_cast<const D &>(*this); }
+
 public:
-  //! \brief Extract the value from a packet
+  //! \brief Send the packet
   //! \details
-  //!   Each byte of the packet is delivered by the provided functor.
-  //! \param ftor Functor which delivers a byte each time it is called
-  template <typename F, sfinae::require_input_ftor<F> = 0> tl::expected<T, error> operator<<(F &&ftor) const {
-    upd::tuple<upd::endianess::LITTLE, Signed_Mode, Ts...> parameters;
-    auto maybe_id =
-        read_headerless_packet(FWD(ftor), upd::signed_mode_h<Signed_Mode>{}, parameters.begin(), parameters.end());
-
-    auto make_value = [&](packet_id id) { return parameters.invoke([&](const Ts &...xs) { return T{id, xs...}; }); };
-    return maybe_id.map(make_value);
+  //!   Each byte of the packet will be called on a provided functor.
+  //! \param ftor Functor which will send a byte each time it is called
+  template <typename F, sfinae::require_output_ftor<F> = 0> Tk operator>>(F &&ftor) {
+    return derived().write(FWD(ftor));
   }
 
-  //! \copybrief operator<<
+  //! \copybrief operator>>
   //! \details
-  //!   Each byte of the packet is delivered by the provided iterator.
-  //! \param it Start of the packet
-  template <typename It, sfinae::require_is_iterator<It> = 0> tl::expected<T, error> operator<<(It it) const {
-    return operator<<([&]() { return *it++; });
+  //!   Each byte will be written using the provided iterator
+  //! \param it Start of the byte sequence to write to
+  template <typename It, sfinae::require_is_iterator<It> = 0> Tk operator>>(It it) {
+    return derived().write([&](upd::byte_t byte) { *it++ = byte; });
   }
 };
 
+} // namespace detail
+
 //! \brief Make a request object which holds the necessary data to send an instruction packet
-template <upd::signed_mode Signed_Mode, typename Tk, typename... Ts> class request {
+template <upd::signed_mode Signed_Mode, typename Tk, typename... Ts>
+class request : public detail::request_base<request<Signed_Mode, Tk, Ts...>, Tk> {
 public:
   //! \brief Store explicitly the values of the instruction packet field
   //! \param id Target device identifier
@@ -54,21 +53,12 @@ public:
   explicit request(packet_id id, instruction ins, const Ts &...parameters)
       : m_id{id}, m_ins{ins}, m_parameters{parameters...} {}
 
-  //! \brief Send the packet
-  //! \details
-  //!   Each byte of the packet will be called on a provided functor.
-  //! \param ftor Functor which will send a byte each time it is called
-  template <typename F, sfinae::require_output_ftor<F> = 0> Tk operator>>(F &&ftor) const {
+  //! \brief Call a functor on each byte of the packet
+  //! \param ftor The functor to call
+  //! \return A ticket that can interpret the response from the target device
+  template <typename F, sfinae::require_output_ftor<F> = 0> Tk write(F &&ftor) const {
     write_packet(FWD(ftor), upd::signed_mode_h<Signed_Mode>{}, m_id, m_ins, m_parameters.begin(), m_parameters.end());
     return {};
-  }
-
-  //! \copybrief operator>>
-  //! \details
-  //!   Each byte will be written using the provided iterator
-  //! \param it Start of the byte sequence to write to
-  template <typename It, sfinae::require_is_iterator<It> = 0> Tk operator>>(It it) const {
-    return operator>>([&](upd::byte_t byte) { *it++ = byte; });
   }
 
 private:

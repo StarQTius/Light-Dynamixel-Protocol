@@ -7,6 +7,7 @@
 
 #include "packet.hpp"
 #include "request.hpp"
+#include "ticket.hpp"
 
 namespace ldp {
 inline namespace v2 {

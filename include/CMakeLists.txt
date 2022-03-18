@@ -6,7 +6,9 @@ set(LDP_HEADERS
     ping.hpp
     request.hpp
     sentry.hpp
+    ticket.hpp
     write.hpp
+    detail/any_function.hpp
     detail/def.hpp
     detail/packet.hpp
     detail/sfinae.hpp
