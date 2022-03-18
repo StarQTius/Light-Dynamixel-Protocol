@@ -29,6 +29,9 @@ template <typename F> struct abstract_input_functor : abstract_input_functor_bas
 //! Neumann architectures
 using any_function_t = void();
 
+//! \brief Common type of 'restore_and_call' template instances
+using restorer_t = error(any_function_t *, abstract_input_functor_base &&);
+
 //! \brief Restore the original type of a callback and call it on the arguments got from the provided input functor
 template <typename F, typename Tk>
 inline error restore_and_call(any_function_t *callback_ptr, abstract_input_functor_base &&input_ftor) {
@@ -37,9 +40,6 @@ inline error restore_and_call(any_function_t *callback_ptr, abstract_input_funct
   maybe.map(callback);
   return maybe ? error::OK : maybe.error();
 }
-
-//! \brief Common type of 'restore_and_call' template instances
-using restorer_t = decltype(restore_and_call<void, void>);
 
 } // namespace detail
 } // namespace ldp
